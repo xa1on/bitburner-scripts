@@ -20,9 +20,9 @@ export async function main(ns) {
             } else {
                 current_server_ram = ns.getServerMaxRam(p_servers[i]);
                 ram = current_server_ram * 2;
-                while (bal >= ns.getPurchasedServerCost(ram * 2)){
-                    ram *= 2;
-                }
+            }
+            while (bal >= ns.getPurchasedServerCost(ram * 2)){
+                ram *= 2;
             }
             cost = ns.getPurchasedServerCost(ram);
             if (bal >= cost) {

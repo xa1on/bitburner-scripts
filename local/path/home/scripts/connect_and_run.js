@@ -30,13 +30,13 @@ export async function main(ns) {
     const script_type = "loop_algo/";
     const hostfile = "home";
     const this_file = script_dir + "connect_and_run.js";
-    // const file = script_dir + script_type + "share_only.js";
-    const file = script_dir + script_type + "loop_algo.js"; // script to run on each server
+    const file = script_dir + script_type + "share_only.js";
+    // const file = script_dir + script_type + "loop_algo.js"; // script to run on each server
     const required_files = [script_dir + script_type + "grow_only.js", script_dir + script_type + "hack_only.js", script_dir + script_type + "weaken_only.js"]; // files to add to found servers
     const filler = required_files[2]; // filler script for excess ram (only if using auto_thread_max)
     const server_purchaser = script_dir + script_type + "server_upgrader.js"; // server upgrader script
     const created_server_ram_usage = 8; // amount of ram each server should start with
-    const auto_thread_max = false; // max out threads, false for loop algo
+    const auto_thread_max = true; // max out threads, false for loop algo
     const delay = 200;
     const server_switch_delay = 1000 * 60 * 5; // delay before being allowed to switch servers
 
