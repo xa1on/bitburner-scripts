@@ -236,6 +236,10 @@ export async function main(ns) {
     run();
     
     while (true) {
+        if (cur_sma === target_cash_max && cur_ssl === target_sec_min && grow_phase) {
+            grow_phase = false;
+            run(true);
+        }
         cur_ssl = ns.getServerSecurityLevel(previous_target["target"]);
         cur_sma = ns.getServerMoneyAvailable(previous_target["target"]);
         if (prev_ssl !== cur_ssl) {
@@ -246,10 +250,6 @@ export async function main(ns) {
             if (prev_sma > cur_sma && !grow_phase) {
                 run();
             }
-        }
-        if (cur_sma === target_cash_max && cur_ssl === target_sec_min && grow_phase) {
-            grow_phase = false;
-            run(true);
         }
         prev_ssl = cur_ssl;
         prev_sma = cur_sma;
