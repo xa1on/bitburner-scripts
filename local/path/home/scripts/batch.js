@@ -209,12 +209,12 @@ export async function main(ns) {
         previous_target = target;
     }
 
-    function run() {
+    function run(force_start) {
         target = getTarget();
         if (grow_phase) {
             run_grow_phase(target);
         }
-        if (target["target"] !== previous_target["target"] || target["servers"].length !== previous_target["servers"].length) {
+        if (force_start || target["target"] !== previous_target["target"] || target["servers"].length !== previous_target["servers"].length) {
             run_grow_phase(target);
             ns.print("PORT LEVEL: " + target["port_level"]);
             for (var i = 0; i < tails.length; i++) {
@@ -233,7 +233,7 @@ export async function main(ns) {
     }
 
     ns.tail();
-    run_grow_phase();
+    run();
     
     while (true) {
         cur_ssl = ns.getServerSecurityLevel(previous_target["target"]);
@@ -243,13 +243,13 @@ export async function main(ns) {
         }
         if (prev_sma !== cur_sma) {
             ns.print("MONEY [" + previous_target["target"] + "]: " + Math.round(cur_sma) + ", MAX: " + target_cash_max);
-            if (prev_sma < cur_sma && !grow_phase) {
+            if (prev_sma > cur_sma && !grow_phase) {
                 run();
             }
         }
         if (cur_sma === target_cash_max && cur_ssl === target_sec_min && grow_phase) {
             grow_phase = false;
-            run();
+            run(true);
         }
         prev_ssl = cur_ssl;
         prev_sma = cur_sma;
