@@ -27,8 +27,10 @@ export async function main(ns) {
     const hostfile = "home";
     const script_dir = "scripts"; // script folder
     const script_type_dir = "batch"; // script type folder
+    const helper_dir = "helper"; // folder with helper functions
     const this_file = script_dir + "/" + "batch.js";
     const server_upgrader = script_dir + "/" + script_type_dir + "/" + "server_upgrader.js"; // server upgrader script
+    const server_stats = script_dir + "/" + helper_dir + "/" + "server_stats.js";
     const created_server_ram_usage = 8; // starting amount of ram for servers
     var batch_scripts = ["hack_only.js", "weaken_only.js", "grow_only.js"]; // scrips used for batch run
     var script_desc = ["hack", "weaken", "grow"];
@@ -39,6 +41,7 @@ export async function main(ns) {
     var ratio = [0.01, 0.33, 0.33, 0.33]; // ratio corresponding to script of same index in batch_order
     const batch_delay = 100; // delay between items in batch
     const use_timing = true;
+    var wait_time = null;
 
     var tails = [];
 
@@ -49,14 +52,8 @@ export async function main(ns) {
     var growth_phase_ratio = [0.5, 0.5];
 
     var target = null;
-    var grow_phase = true;
+    var grow_phase;
     var previous_target = {target: null, port_level: 0, servers: []};
-    var target_cash_max;
-    var target_sec_min;
-    var prev_ssl = null;
-    var prev_sma = null;
-    var cur_ssl = null;
-    var cur_sma = null;
 
     // calculate the maximum amount of ports we can bypass
     function calculate_port_level() {
@@ -124,8 +121,22 @@ export async function main(ns) {
         return {total: total, thread_count: threads, servers: servers};
     }
 
+    function runServerUpgrader(created_server_ram_usage) {
+        var run_server_upgrader = ns.run(server_upgrader, 1, created_server_ram_usage);
+        ns.tail(run_server_upgrader);
+        ns.moveTail(500, 100, run_server_upgrader);
+        tails.push(run_server_upgrader);
+    }
+
+    function runServerStats(server) {
+        var run_server_stats = ns.run(server_stats, 1, server);
+        ns.tail(run_server_stats);
+        ns.moveTail(1000, 100, run_server_stats);
+        tails.push(run_server_stats);
+    }
+
     // uses ratio to allocate the best number of threads in the order specified
-    function allocateThreads(target, batch_scripts, script_desc, ram_usage, batch_order, ratio, batch_delay, use_timing, server_upgrader, created_server_ram_usage, ...args) {
+    function allocateThreads(target, batch_scripts, script_desc, ram_usage, batch_order, ratio, batch_delay, use_timing, ...args) {
         var max_ram_usage = Math.max(...ram_usage)
         var thread_dist = getThreadDist(max_ram_usage, function (server) {
             if (server !== hostfile) {
@@ -139,12 +150,6 @@ export async function main(ns) {
                     if (scripts_running[i]["filename"] !== this_file) {
                         ns.kill(scripts_running[i]["pid"]);
                     }
-                }
-                if (server_upgrader) {
-                    var run_server_upgrader = ns.run(server_upgrader, 1, created_server_ram_usage);
-                    ns.tail(run_server_upgrader);
-                    ns.moveTail(500, 100, run_server_upgrader);
-                    tails.push(run_server_upgrader);
                 }
             }
         }, ...args);
@@ -197,62 +202,55 @@ export async function main(ns) {
                 thread_dist["thread_count"][server_index] -= allocation_left;
             }
         }
+        return base_length + (batch_order.length * batch_delay);
     }
 
-    function run_grow_phase(target) {
-        ns.print("PORT LEVEL: " + target["port_level"]);
-        allocateThreads(target["target"], batch_scripts, script_desc, ram_usage, growth_phase_order, growth_phase_ratio, 0, false, false, false);
-        previous_target = target;
-        ns.print("\nFinished targetting for grow phase: " + target["target"]);
-        target_sec_min = ns.getServerMinSecurityLevel(target["target"]);
-        target_cash_max = ns.getServerMaxMoney(target["target"]);
-        previous_target = target;
-    }
-
-    function run(force_start) {
-        target = getTarget();
-        if (grow_phase) {
-            run_grow_phase(target);
-        }
-        if (force_start || target["target"] !== previous_target["target"] || target["servers"].length !== previous_target["servers"].length) {
-            run_grow_phase(target);
+    function runBatch(target, grow, debug, re_run_stats) {
+        var wait_time;
+        if (debug) {
             ns.print("PORT LEVEL: " + target["port_level"]);
-            for (var i = 0; i < tails.length; i++) {
-                ns.closeTail(tails[i]);
-            }
             for (var i = 0; i < target["servers"].length; i++) {
                 ns.print("[" + target["servers"][i] + "]");
             }
-            allocateThreads(target["target"], batch_scripts, script_desc, ram_usage, batch_order, ratio, batch_delay, use_timing, server_upgrader, created_server_ram_usage);
-            previous_target = target;
-            ns.print("\nFinished targetting: " + target["target"]);
-            target_sec_min = ns.getServerMinSecurityLevel(target["target"]);
-            target_cash_max = ns.getServerMaxMoney(target["target"]);
-            previous_target = target;
+
         }
+        // clear tails
+        for (var i = 0; i < tails.length; i++) {
+            ns.closeTail(tails[i]);
+        }
+        if (grow) {
+            wait_time = allocateThreads(target["target"], batch_scripts, script_desc, ram_usage, growth_phase_order, growth_phase_ratio, 0, false);
+        } else {
+            wait_time = allocateThreads(target["target"], batch_scripts, script_desc, ram_usage, batch_order, ratio, batch_delay, use_timing);
+        }
+        // sets up server upgrader and server stat board
+        if (re_run_stats) {
+            runServerStats(target["target"]);
+            runServerUpgrader(created_server_ram_usage);
+        }
+        ns.print("\nBatch Started (Grow Phase: " + grow + "): " + target["target"]);
+        return wait_time;
+    }
+
+    function getGrowPhase(target) {
+        return ns.getServerMoneyAvailable(target) < ns.getServerMaxMoney(target) || ns.getServerMinSecurityLevel(target) > ns.getServerSecurityLevel(target);
     }
 
     ns.tail();
-    run();
+    ns.moveTail(1500, 100);
     
     while (true) {
-        if (cur_sma === target_cash_max && cur_ssl === target_sec_min && grow_phase) {
-            grow_phase = false;
-            run(true);
+        target = getTarget();
+        if (previous_target["target"] !== target["target"] || previous_target["servers"].length !== previous_target["servers"].length) {
+            grow_phase = getGrowPhase(target["target"]);
+            wait_time = runBatch(target, grow_phase, true, true);
+        } else if (grow_phase) {
+            grow_phase = getGrowPhase(target["target"]);
+            wait_time = runBatch(target, grow_phase);
+        } else {
+            wait_time = runBatch(previous_target, false);
         }
-        cur_ssl = ns.getServerSecurityLevel(previous_target["target"]);
-        cur_sma = ns.getServerMoneyAvailable(previous_target["target"]);
-        if (prev_ssl !== cur_ssl) {
-            ns.print("SECURITY [" + previous_target["target"] + "]: " + Math.round(cur_ssl) + ", MIN: " + target_sec_min);
-        }
-        if (prev_sma !== cur_sma) {
-            ns.print("MONEY [" + previous_target["target"] + "]: " + Math.round(cur_sma) + ", MAX: " + target_cash_max);
-            if (prev_sma > cur_sma && !grow_phase) {
-                run();
-            }
-        }
-        prev_ssl = cur_ssl;
-        prev_sma = cur_sma;
-        await ns.sleep(40);
+        await ns.sleep(wait_time);
+        previous_target = target;
     }
 }
