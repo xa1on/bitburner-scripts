@@ -1,15 +1,19 @@
 # bitburner-scripts
 
-scripts I made for [bitburner](https://github.com/bitburner-official/bitburner-src)
+Scripts I made for [BitBurner](https://github.com/bitburner-official/bitburner-src)
 
+## Includes:
+- loop-algo for midgame
+- batch algo for lategame w/ included server autoupgrader
+- stock sim trading algo w/ api access (wip)
 
-## How to get replicate the setup (bb-external-editor)
+## How to get replicate the setup ([bb-external-editor](https://github.com/shyguy1412/bb-external-editor))
 
 ### Cloning this Repo
 
 1. If you dont already have it installed, install [NodeJS](https://nodejs.org) v20 or newer
 1. Clone this repository `git clone https://github.com/xa1on/bitburner-scripts`
-1. navigate to the template inside your console `cd bb-external-editor`
+1. navigate to the template inside your console `cd bitburner-scripts`
 1. run `npm install` in your console to install all dependencies
 1. run `npm start` in your console to start the RemoteAPI server
 1. open Bitburner and navigate to the settings
