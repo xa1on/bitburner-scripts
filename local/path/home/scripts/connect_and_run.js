@@ -34,7 +34,7 @@ export async function main(ns) {
     const file = script_dir + script_type + "loop_algo.js"; // script to run on each server
     const required_files = [script_dir + script_type + "grow_only.js", script_dir + script_type + "hack_only.js", script_dir + script_type + "weaken_only.js"]; // files to add to found servers
     const filler = required_files[2]; // filler script for excess ram (only if using auto_thread_max)
-    const server_purchaser = script_dir + "server_upgrader.js"; // server upgrader script
+    const server_purchaser = script_dir + script_type + "server_upgrader.js"; // server upgrader script
     const created_server_ram_usage = 8; // amount of ram each server should start with
     const auto_thread_max = false; // max out threads, false for loop algo
     const delay = 200;
@@ -117,7 +117,7 @@ export async function main(ns) {
                     servers_seen.push(scanned[j]);
                     scanned_req_level = ns.getServerRequiredHackingLevel(scanned[j]);
                     scanned_cash = ns.getServerMaxMoney(scanned[j]);
-                    if (current_max_ports >= ns.getServerNumPortsRequired(scanned[j]) && scanned_req_level <= player_level * 0.8 && scanned_cash > target_cash_max) {
+                    if (current_max_ports >= ns.getServerNumPortsRequired(scanned[j]) && scanned_req_level <= Math.max(player_level * 0.8, 1) && scanned_cash > target_cash_max) {
                         target_cash_max = scanned_cash;
                         target = scanned[j];
                     }
