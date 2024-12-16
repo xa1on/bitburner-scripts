@@ -1,13 +1,14 @@
-# bb-external-editor
+# bitburner-scripts
 
-This is a template for using any external editor for Bitburner. This Template supports JS, JSX, TS and TSX out of the box.
+scripts I made for [bitburner](https://github.com/bitburner-official/bitburner-src)
 
-## How to get started
+
+## How to get replicate the setup (bb-external-editor)
 
 ### Cloning this Repo
 
 1. If you dont already have it installed, install [NodeJS](https://nodejs.org) v20 or newer
-1. Clone this repository `git clone https://github.com/shyguy1412/bb-external-editor`
+1. Clone this repository `git clone https://github.com/xa1on/bitburner-scripts`
 1. navigate to the template inside your console `cd bb-external-editor`
 1. run `npm install` in your console to install all dependencies
 1. run `npm start` in your console to start the RemoteAPI server
