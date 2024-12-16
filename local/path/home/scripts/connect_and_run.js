@@ -27,16 +27,18 @@ export async function main(ns) {
 
     // config
     const script_dir = "scripts/";
+    const script_type = "loop_algo/";
     const hostfile = "home";
     const this_file = script_dir + "connect_and_run.js";
-    // const file = script_dir + "share_only.js";
-    const file = script_dir + "loop_algo.js"; // script to run on each server
-    const required_files = [script_dir + "grow_only.js", script_dir + "hack_only.js", script_dir + "weaken_only.js"]; // files to add to found servers
-    const filler = script_dir + "grow_only.js"; // filler script for excess ram (only if using auto_thread_max)
+    // const file = script_dir + script_type + "share_only.js";
+    const file = script_dir + script_type + "loop_algo.js"; // script to run on each server
+    const required_files = [script_dir + script_type + "grow_only.js", script_dir + script_type + "hack_only.js", script_dir + script_type + "weaken_only.js"]; // files to add to found servers
+    const filler = required_files[2]; // filler script for excess ram (only if using auto_thread_max)
     const server_purchaser = script_dir + "server_upgrader.js"; // server upgrader script
     const created_server_ram_usage = 8; // amount of ram each server should start with
     const auto_thread_max = false; // max out threads, false for loop algo
     const delay = 200;
+    const server_switch_delay = 1000 * 60 * 5; // delay before being allowed to switch servers
 
     const ram_use = ns.getScriptRam(file);
     const filler_ram_use = ns.getScriptRam(filler);
@@ -58,22 +60,22 @@ export async function main(ns) {
     var cur_sma = null;
     var run_server_upgrader = null;
     var tails = [];
+    var prev_time = 0;
     ns.tail();
 
-    // calcualte the number of ports we can bypass
-    if (ns.fileExists("SQLInject.exe", hostfile)) {
-        current_max_ports = 5;
-    } else if (ns.fileExists("HTTPWorm.exe", hostfile)) {
-        current_max_ports = 4;
-    } else if (ns.fileExists("relaySMTP.exe", hostfile)) {
-        current_max_ports = 3;
-    } else if (ns.fileExists("FTPCrack.exe", hostfile)) {
-        current_max_ports = 2;
-    } else if (ns.fileExists("BruteSSH.exe", hostfile)) {
-        current_max_ports = 1;
+    function calculate_port_level() {
+        if (ns.fileExists("SQLInject.exe", hostfile)) {
+            current_max_ports = 5;
+        } else if (ns.fileExists("HTTPWorm.exe", hostfile)) {
+            current_max_ports = 4;
+        } else if (ns.fileExists("relaySMTP.exe", hostfile)) {
+            current_max_ports = 3;
+        } else if (ns.fileExists("FTPCrack.exe", hostfile)) {
+            current_max_ports = 2;
+        } else if (ns.fileExists("BruteSSH.exe", hostfile)) {
+            current_max_ports = 1;
+        }
     }
-    ns.print("PORT LEVEL: " + current_max_ports);
-    
 
     function crack(server) {
         var ports_required = ns.getServerNumPortsRequired(server);
@@ -115,7 +117,7 @@ export async function main(ns) {
                     servers_seen.push(scanned[j]);
                     scanned_req_level = ns.getServerRequiredHackingLevel(scanned[j]);
                     scanned_cash = ns.getServerMaxMoney(scanned[j]);
-                    if (current_max_ports >= ns.getServerNumPortsRequired(scanned[j]) && scanned_req_level <= player_level * 0.5 && scanned_cash > target_cash_max) {
+                    if (current_max_ports >= ns.getServerNumPortsRequired(scanned[j]) && scanned_req_level <= player_level * 0.8 && scanned_cash > target_cash_max) {
                         target_cash_max = scanned_cash;
                         target = scanned[j];
                     }
@@ -127,12 +129,17 @@ export async function main(ns) {
 
     while (true) {
         player_level = ns.getHackingLevel();
+        calculate_port_level();
         servers = get_all_servers();
-        if (previous_target !== target) {
+        if (ns.args[0]) {
+            target = ns.args[0];
+            target_cash_max = ns.getServerMaxMoney(target);
+        }
+        if (previous_target !== target && Date.now() - prev_time >= server_switch_delay) {
+            ns.print("PORT LEVEL: " + current_max_ports);
             for (var i = 0; i < tails.length; i++) {
                 ns.closeTail(tails[i]);
             }
-
             target_sec_min = ns.getServerMinSecurityLevel(target);
             crack(target);
             
@@ -150,7 +157,7 @@ export async function main(ns) {
                         }
                         run_server_upgrader = ns.run(server_purchaser, 1, created_server_ram_usage, file, auto_thread_max, ram_use, target, target_cash_max, target_sec_min);
                         ns.tail(run_server_upgrader);
-                        ns.moveTail(100, 100, run_server_upgrader);
+                        ns.moveTail(500, 100, run_server_upgrader);
                         tails.push(run_server_upgrader);
                     } else {
                         ns.killall(current);
@@ -182,14 +189,15 @@ export async function main(ns) {
             }
             ns.print("\nFinished targetting: " + target);
             previous_target = target;
+            prev_time = Date.now();
         }
-        cur_ssl = ns.getServerSecurityLevel(target);
-        cur_sma = ns.getServerMoneyAvailable(target);
+        cur_ssl = ns.getServerSecurityLevel(previous_target);
+        cur_sma = ns.getServerMoneyAvailable(previous_target);
         if (prev_ssl !== cur_ssl) {
-            ns.print("SECURITY [" + target + "]: " + Math.round(cur_ssl) + ", MIN: " + target_sec_min);
+            ns.print("SECURITY [" + previous_target + "]: " + Math.round(cur_ssl) + ", MIN: " + target_sec_min);
         }
         if (prev_sma !== cur_sma) {
-            ns.print("MONEY [" + target + "]: " + Math.round(cur_sma) + ", MAX: " + target_cash_max);
+            ns.print("MONEY [" + previous_target + "]: " + Math.round(cur_sma) + ", MAX: " + target_cash_max);
         }
         prev_ssl = cur_ssl;
         prev_sma = cur_sma;

@@ -4,7 +4,8 @@ export async function main(ns) {
     const hostname = ns.getHostname();
     const free_ram = ns.getServerMaxRam(hostname) - ns.getServerUsedRam(hostname);
     const script_dir = "scripts/";
-    const scripts = [script_dir + "hack_only.js", script_dir + "weaken_only.js", script_dir + "grow_only.js"];
+    const script_type = "loop_algo/";
+    const scripts = [script_dir + script_type + "hack_only.js", script_dir + script_type + "weaken_only.js", script_dir + script_type + "grow_only.js"];
     const ratio = [0.01, 0.34, 0.65];
     const fill = 1; // index of filler script
     const hack_index = 0;

@@ -2,7 +2,8 @@
 export async function main(ns) {
     ns.disableLog("ALL");
     const script_dir = "scripts/";
-    const required_files = [script_dir + "grow_only.js", script_dir + "hack_only.js", script_dir + "weaken_only.js"];
+    const script_type = "loop_algo/";
+    const required_files = [script_dir + script_type + "grow_only.js", script_dir + script_type + "hack_only.js", script_dir + script_type + "weaken_only.js"];
     var ram = null;
     var server_prefix = "pserv";
     var p_servers = ns.getPurchasedServers();
