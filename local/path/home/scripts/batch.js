@@ -23,12 +23,15 @@ export async function main(ns) {
     ns.disableLog("getServerMaxMoney");
     ns.disableLog("getServerSecurityLevel");
     ns.disableLog("getServerMoneyAvailable");
+    ns.disableLog("purchaseServer");
+    ns.disableLog("deleteServer");
+    ns.disableLog("getPurchasedServerCost");
 
     const hostfile = "home";
     const script_dir = "scripts"; // script folder
     const script_type_dir = "batch"; // script type folder
     const this_file = script_dir + "/" + "batch.js";
-    const created_server_ram_usage = 8; // starting amount of ram for servers
+    
     var batch_scripts = ["hack_only.js", "weaken_only.js", "grow_only.js"]; // scrips used for batch run
     var script_desc = ["hack", "weaken", "grow"];
     // include script_dir & script_type to get correct directory
@@ -38,13 +41,16 @@ export async function main(ns) {
     var ratio = [0.01, 0.33, 0.33, 0.33]; // ratio corresponding to script of same index in batch_order
     const batch_delay = 100; // delay between items in batch
     const use_timing = true;
-    const home_buffer = 8;
+    const home_buffer = 16;
+    const player_level_factor = 0.5;
+    const growth_phase_batches_max = 5;
+    var current_growth_phase_batch = 0;
     var wait_time = null;
 
     const ports = ["NUKE.exe", "BruteSSH.exe", "FTPCrack.exe", "relaySMTP.exe", "HTTPWorm.exe", "SQLInject.exe"];
     const port_func = [{f: ns.nuke}, {f: ns.brutessh}, {f: ns.ftpcrack}, {f: ns.relaysmtp}, {f: ns.httpworm}, {f: ns.sqlinject}];
 
-    var growth_phase_order = [1, 2];
+    var growth_phase_order = [2, 1];
     var growth_phase_ratio = [0.5, 0.5];
 
     var target = null;
@@ -57,10 +63,13 @@ export async function main(ns) {
     var p_servers = ns.getPurchasedServers();
     var total_servers = p_servers.length;
     var hostname;
+    const created_server_ram_usage = 8; // starting amount of ram for servers
     const server_limit = 25;
     var cost = null;
     var current_server_ram = null;
     var bal = null;
+
+    var previous_bal = null;
 
     var money_postfix = ["", "k", "m", "b", "t"];
     function moneyToString(amount) {
@@ -83,18 +92,18 @@ export async function main(ns) {
     }
 
     // returns a list of all servers
-    function getAllServers() {
+    function getAllServers(cond) {
         var servers_seen = [hostfile];
-        for (var k = 0; k < arguments.length; k++) {
+        for (var k = 1; k < arguments.length; k++) {
             arguments[k](hostfile);
         }
         var scanned = null;
         for (var i = 0; i < servers_seen.length; i++) {
             scanned = ns.scan(servers_seen[i]);
             for (var j = 0; j < scanned.length; j++) {
-                if (servers_seen.indexOf(scanned[j]) === -1) {
+                if (servers_seen.indexOf(scanned[j]) === -1 && (!cond || cond(scanned[j]))) {
                     servers_seen.push(scanned[j]);
-                    for (var k = 0; k < arguments.length; k++) {
+                    for (var k = 1; k < arguments.length; k++) {
                         arguments[k](scanned[j]);
                     } 
                 }
@@ -103,26 +112,37 @@ export async function main(ns) {
         return servers_seen;
     }
 
+    function validServer(server) {
+        var port_level = calculate_port_level();
+        var ports_required = ns.getServerNumPortsRequired(server);
+        if (ns.hasRootAccess(server)) {
+            return true;
+        } else if (ports_required <= port_level) {
+            ns.print(server);
+            for (var i = ports_required; i >= 0; i--) {
+                port_func[i]["f"](server);
+            }
+            return true;
+        }
+        return false;
+    }
+
     function getTarget(...args) {
         var target;
         var greatest_max_money = 0;
         var max_money;
-        var port_level = calculate_port_level();
-        var ports_required = 0;
-        var servers = getAllServers(function (server) {
+        var ports_required;
+        var servers = getAllServers(false, function (server) {
             ports_required = ns.getServerNumPortsRequired(server);
-            if (server !== hostfile && ports_required <= port_level) {
-                for (var i = ports_required; i >= 0; i--) {
-                    port_func[i]["f"](server);
-                }
+            if (server !== hostfile && validServer(server)) {
                 max_money = ns.getServerMaxMoney(server);
-                if (ns.getServerRequiredHackingLevel(server) <= Math.max(ns.getHackingLevel() * 0.8, 1) && max_money > greatest_max_money) {
+                if (ns.getServerRequiredHackingLevel(server) <= Math.max(ns.getHackingLevel() * player_level_factor, 1) && max_money > greatest_max_money) {
                     greatest_max_money = max_money;
                     target = server;
                 }
             }
         }, ...args);
-        return {target: target, port_level: port_level, servers: servers};
+        return {target: target, port_level: calculate_port_level(), servers: servers};
     }
 
     // returns a dictionary containing the total amount of threads and threads per server based on index
@@ -131,7 +151,7 @@ export async function main(ns) {
         var total = 0;
         var available_threads;
         var max_ram;
-        var servers = getAllServers(...args, function (server) {
+        var servers = getAllServers(validServer, ...args, function (server) {
             max_ram = ns.getServerMaxRam(server);
             if (server === hostfile) {
                 max_ram -= home_buffer;
@@ -244,9 +264,12 @@ export async function main(ns) {
     function runBatch(target, grow, debug) {
         var wait_time;
         if (debug) {
-            ns.print("PORT LEVEL: " + target["port_level"]);
+            ns.print("PORT LEVEL: " + calculate_port_level());
+            ns.print("[" + hostfile + "]");
             for (var i = 0; i < target["servers"].length; i++) {
-                ns.print("[" + target["servers"][i] + "]");
+                if (validServer(target["servers"][i])) {
+                    ns.print("[" + target["servers"][i] + "]");
+                }
             }
         }
         if (grow) {
@@ -254,34 +277,42 @@ export async function main(ns) {
         } else {
             wait_time = allocateThreads(target["target"], batch_scripts, script_desc, ram_usage, batch_order, ratio, batch_delay, use_timing);
         }
-        // sets up server upgrader and server stat board
-        var seconds = Math.floor(wait_time / 1000);
-        var minutes = Math.floor(seconds / 60);
-        ns.print("\nBatch Started (Grow Phase: " + grow + "): " + target["target"] + " (" + minutes + "m " + (seconds - minutes * 60) + "s)");
-        ns.print("MONEY: " + moneyToString(ns.getServerMoneyAvailable(target["target"])) + "/" + moneyToString(ns.getServerMaxMoney(target["target"])) + ", SECURITY: " + ns.getServerSecurityLevel(target["target"]) + " - " + ns.getServerMinSecurityLevel(target["target"]));
         return wait_time;
     }
 
-    function getGrowPhase(target) {
-        return ns.getServerMoneyAvailable(target) < ns.getServerMaxMoney(target) || ns.getServerMinSecurityLevel(target) > ns.getServerSecurityLevel(target);
+    function getGrowPhase(target, current_growth_phase_batch) {
+        return current_growth_phase_batch < growth_phase_batches_max && (ns.getServerMoneyAvailable(target) < ns.getServerMaxMoney(target) || ns.getServerMinSecurityLevel(target) > ns.getServerSecurityLevel(target));
+    }
+
+    function getStats(target) {
+        ns.print("MONEY: $" + moneyToString(ns.getServerMoneyAvailable(target)) + "/$" + moneyToString(ns.getServerMaxMoney(target)) + ", SECURITY: " + ns.getServerSecurityLevel(target) + " - " + ns.getServerMinSecurityLevel(target));
     }
 
     ns.tail();
     
     while (true) {
         target = getTarget();
-        if (previous_target["target"] !== target["target"] || previous_target["servers"].length !== previous_target["servers"].length) {
-            grow_phase = getGrowPhase(target["target"]);
+        if (previous_target["target"] !== target["target"] || previous_target["servers"].length !== previous_target["servers"].length || previous_target["port_level"] !== target["port_level"]) {
+            current_growth_phase_batch = 1;
+            grow_phase = getGrowPhase(target["target"], current_growth_phase_batch);
             wait_time = runBatch(target, grow_phase, true);
         } else if (grow_phase) {
-            grow_phase = getGrowPhase(target["target"]);
+            grow_phase = getGrowPhase(target["target"], current_growth_phase_batch);
             wait_time = runBatch(target, grow_phase);
+            if (grow_phase) {
+                current_growth_phase_batch++;
+            }
         } else {
             wait_time = runBatch(previous_target, false);
         }
-        await ns.sleep(wait_time);
+        var seconds = Math.floor(wait_time / 1000);
+        var minutes = Math.floor(seconds / 60);
+        previous_bal = ns.getServerMoneyAvailable("home");
+        ns.print("\nBatch Started (Grow Phase: " + grow_phase + "): " + target["target"] + " (" + minutes + "m " + (seconds - minutes * 60) + "s)");
+        getStats(target["target"]);
+        await ns.sleep(wait_time + 200);
         previous_target = target;
-        ns.print("Batch Finished.");
+        ns.print("Batch Finished. ($" + (moneyToString(ns.getServerMoneyAvailable("home") - previous_bal)) + ", " + current_growth_phase_batch + ")");
         serverUpgrader(created_server_ram_usage);
     }
 }
