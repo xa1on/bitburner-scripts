@@ -38,7 +38,7 @@ export async function main(ns) {
     for (var i = 0; i < batch_scripts.length; i++) { batch_scripts[i] = script_dir + "/" + script_type_dir + "/" + batch_scripts[i]; }
     var ram_usage = [1.70, 1.75, 1.75];
     var batch_order = [0, 1, 2, 1]; // order that batch_scripts should run with index
-    var ratio = [0.01, 0.33, 0.33, 0.33]; // ratio corresponding to script of same index in batch_order
+    var ratio = [0.10, 0.20, 0.40, 0.30]; // ratio corresponding to script of same index in batch_order
     const batch_delay = 100; // delay between items in batch
     const use_timing = true;
     const home_buffer = 16;
@@ -51,7 +51,7 @@ export async function main(ns) {
     const port_func = [{f: ns.nuke}, {f: ns.brutessh}, {f: ns.ftpcrack}, {f: ns.relaysmtp}, {f: ns.httpworm}, {f: ns.sqlinject}];
 
     var growth_phase_order = [2, 1];
-    var growth_phase_ratio = [0.5, 0.5];
+    var growth_phase_ratio = [0.7, 0.3];
 
     var target = null;
     var grow_phase;
@@ -265,7 +265,6 @@ export async function main(ns) {
         var wait_time;
         if (debug) {
             ns.print("PORT LEVEL: " + calculate_port_level());
-            ns.print("[" + hostfile + "]");
             for (var i = 0; i < target["servers"].length; i++) {
                 if (validServer(target["servers"][i])) {
                     ns.print("[" + target["servers"][i] + "]");
