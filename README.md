@@ -7,7 +7,7 @@ Scripts I made for [BitBurner](https://github.com/bitburner-official/bitburner-s
 - batch algo for lategame w/ included server autoupgrader
 - stock sim trading algo w/ api access (wip)
 
-## How to get replicate the setup ([bb-external-editor](https://github.com/shyguy1412/bb-external-editor))
+## Replicating setup ([bb-external-editor](https://github.com/shyguy1412/bb-external-editor))
 
 ### Cloning this Repo
 
