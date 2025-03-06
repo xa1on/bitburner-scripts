@@ -1,7 +1,7 @@
 /** @param {NS} ns */
 export async function main(ns) {
     ns.disableLog("ALL");
-    ns.tail();
+    ns.ui.openTail();
     function find_server(start_loc) {
         var servers_seen = [start_loc];
         var scanned = null;

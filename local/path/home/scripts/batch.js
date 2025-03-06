@@ -270,7 +270,7 @@ export async function main(ns) {
         ns.print("MONEY: $" + moneyToString(ns.getServerMoneyAvailable(target)) + "/$" + moneyToString(ns.getServerMaxMoney(target)) + ", SECURITY: " + ns.getServerSecurityLevel(target) + " - " + ns.getServerMinSecurityLevel(target));
     }
 
-    ns.tail();
+    ns.ui.openTail();
     
     while (true) {
         target = getTarget();

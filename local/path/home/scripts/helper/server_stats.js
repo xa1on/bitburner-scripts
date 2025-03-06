@@ -10,7 +10,7 @@ export async function main(ns) {
     var cur_sma = null;
     var cur_smm = null;
     var target = ns.args[0];
-    ns.tail();
+    ns.ui.openTail();
     ns.clearLog();
     while (true) {
         cur_ssl = ns.getServerSecurityLevel(target);

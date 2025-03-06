@@ -61,7 +61,7 @@ export async function main(ns) {
     var run_server_upgrader = null;
     var tails = [];
     var prev_time = 0;
-    ns.tail();
+    ns.ui.openTail();
 
     function calculate_port_level() {
         if (ns.fileExists("SQLInject.exe", hostfile)) {
@@ -156,7 +156,7 @@ export async function main(ns) {
                             }
                         }
                         run_server_upgrader = ns.run(server_purchaser, 1, created_server_ram_usage, file, auto_thread_max, ram_use, target, target_cash_max, target_sec_min);
-                        ns.tail(run_server_upgrader);
+                        ns.ui.openTail(run_server_upgrader);
                         ns.moveTail(500, 100, run_server_upgrader);
                         tails.push(run_server_upgrader);
                     } else {
